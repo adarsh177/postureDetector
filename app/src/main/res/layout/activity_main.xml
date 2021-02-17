@@ -27,17 +27,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <EditText
-        android:id="@+id/etResults"
+    <TextView
+        android:id="@+id/pushup"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#FFFFFF"
-        android:ems="10"
-        android:gravity="start|top"
-        android:inputType="textMultiLine"
-        android:padding="5dp"
+        android:background="@color/teal_700"
+        android:clickable="true"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:padding="10dp"
+        android:text="PUSHUPS : 0 (Click to reset)"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/viewFinder" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

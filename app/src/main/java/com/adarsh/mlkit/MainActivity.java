@@ -1,7 +1,6 @@
 package com.adarsh.mlkit;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
@@ -11,22 +10,18 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.drawable.BitmapDrawable;
-import android.media.Image;
+import android.graphics.PointF;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -38,27 +33,26 @@ import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
 import com.google.mlkit.vision.pose.PoseLandmark;
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions;
-import com.squareup.picasso.Callback;
-import com.squareup.picasso.Picasso;
 
 import java.util.List;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     PreviewView previewView;
     PoseDetector detector;
-    EditText etResults;
     ImageView guidelineView;
     ImageCapture imageCapture;
+    TextView tvPushup;
 
     Canvas guidelineCanvas;
     Bitmap guidelineBmp, tempBitmap;
     Paint guidePointPaint, guidePaint, transPaint;
 
-    private final int UPDATE_TIME = 40;
+    private final int UPDATE_TIME = 40, PUSHUP_THRESHOLD_DEG = 90;
     private boolean isFrameBeingTested = false, canvasAlreadyClear = true;
+
+    int halfPushupCount = 0;
+    Boolean pushupLastAngleLarge = null;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         initViews();
         checkPermissions();
+
+        Log.d("debugg", "We got : " + getAngleBtwPoints_deg(new PointF(10, 0), new PointF(0,0), new PointF(10, 17.32f)));
     }
 
     private void loadGuidelines(Bitmap bmp, Pose pose){
@@ -140,10 +136,52 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    // in this case processing pushup count
+    private void processExercise(Pose pose){
+        float angleLeftHand = getAngleBtwPoints_deg(pose.getPoseLandmark(PoseLandmark.LEFT_WRIST).getPosition(), pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW).getPosition(), pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER).getPosition());
+        float angleRightHand = getAngleBtwPoints_deg(pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST).getPosition(), pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW).getPosition(), pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER).getPosition());
+        float avgPushupAngle = (Math.abs(angleLeftHand) + Math.abs(angleRightHand)) / 2;
+
+        if(pushupLastAngleLarge == null){
+            pushupLastAngleLarge = avgPushupAngle >= PUSHUP_THRESHOLD_DEG;
+        }
+
+        if(pushupLastAngleLarge && (avgPushupAngle < PUSHUP_THRESHOLD_DEG)){
+            pushupLastAngleLarge = false;
+            halfPushupCount++;
+        }
+
+        if(!pushupLastAngleLarge && (avgPushupAngle >= PUSHUP_THRESHOLD_DEG)){
+            pushupLastAngleLarge = true;
+            halfPushupCount++;
+        }
+
+        tvPushup.setText("PUSHUPS : " + (halfPushupCount/2) + " (Click to reset)");
+    }
+
+    // to get accurate angles for this program pass points in this order (wrist, elbow, ankle)
+    private float getAngleBtwPoints_deg(PointF a1, PointF a2, PointF a3){
+        float m1 = (a2.y - a1.y)/ (a2.x - a1.x);
+        float m2 = (a3.y - a2.y)/ (a3.x - a2.x);
+        float tanTheta = (m2 - m1)/(1 + (m1*m2));
+        float angle = (float) Math.atan(Math.abs(tanTheta));
+        float angleDeg = (float) (180f / (Math.PI / angle));
+        if( !(m1 < 0 || m2 < 0)) angleDeg = 180 - angleDeg;
+        return angleDeg;
+    }
+
     private void initViews(){
         previewView = findViewById(R.id.viewFinder);
-        etResults = findViewById(R.id.etResults);
+        tvPushup = findViewById(R.id.pushup);
         guidelineView = findViewById(R.id.canvas);
+
+        tvPushup.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                halfPushupCount = 0;
+                pushupLastAngleLarge = null;
+            }
+        });
     }
 
     private void runTest(){
@@ -175,46 +213,8 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    String text = "";
-
-                    text += "LEFT_SHOULDER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER).getPosition().y) + "\n";
-                    text += "RIGHT_SHOULDER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER).getPosition().y) + "\n";
-                    text += "LEFT_ELBOW: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW).getPosition().y) + "\n";
-                    text += "RIGHT_ELBOW: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW).getPosition().y) + "\n";
-                    text += "LEFT_WRIST: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_WRIST).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_WRIST).getPosition().y) + "\n";
-                    text += "RIGHT_WRIST: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST).getPosition().y) + "\n";
-                    text += "LEFT_HIP: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_HIP).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_HIP).getPosition().y) + "\n";
-                    text += "RIGHT_HIP: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_HIP).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_HIP).getPosition().y) + "\n";
-                    text += "LEFT_KNEE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_KNEE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_KNEE).getPosition().y) + "\n";
-                    text += "RIGHT_KNEE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE).getPosition().y) + "\n";
-                    text += "LEFT_ANKLE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE).getPosition().y) + "\n";
-                    text += "RIGHT_ANKLE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE).getPosition().y) + "\n";
-                    text += "LEFT_PINKY: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_PINKY).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_PINKY).getPosition().y) + "\n";
-                    text += "RIGHT_PINKY: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_PINKY).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_PINKY).getPosition().y) + "\n";
-                    text += "LEFT_INDEX: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_INDEX).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_INDEX).getPosition().y) + "\n";
-                    text += "RIGHT_INDEX: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_INDEX).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_INDEX).getPosition().y) + "\n";
-                    text += "LEFT_THUMB: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_THUMB).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_THUMB).getPosition().y) + "\n";
-                    text += "RIGHT_THUMB: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_THUMB).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_THUMB).getPosition().y) + "\n";
-                    text += "LEFT_HEEL: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_HEEL).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_HEEL).getPosition().y) + "\n";
-                    text += "RIGHT_HEEL: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_HEEL).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_HEEL).getPosition().y) + "\n";
-                    text += "LEFT_FOOT_INDEX: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX).getPosition().y) + "\n";
-                    text += "RIGHT_FOOT_INDEX: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX).getPosition().y) + "\n";
-                    text += "NOSE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().y) + "\n";
-                    text += "LEFT_EYE_INNER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE_INNER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE_INNER).getPosition().y) + "\n";
-                    text += "LEFT_EYE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE).getPosition().y) + "\n";
-                    text += "LEFT_EYE_OUTER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE_OUTER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EYE_OUTER).getPosition().y) + "\n";
-                    text += "RIGHT_EYE_INNER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_INNER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_INNER).getPosition().y) + "\n";
-                    text += "RIGHT_EYE: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().y) + "\n";
-                    text += "RIGHT_EYE_OUTER: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_OUTER).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_OUTER).getPosition().y) + "\n";
-                    text += "LEFT_EAR: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EAR).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_EAR).getPosition().y) + "\n";
-                    text += "RIGHT_EAR: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EAR).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_EAR).getPosition().y) + "\n";
-                    text += "LEFT_MOUTH: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_MOUTH).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.LEFT_MOUTH).getPosition().y) + "\n";
-                    text += "RIGHT_MOUTH: " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_MOUTH).getPosition().x) + ", " + String.valueOf(pose.getPoseLandmark(PoseLandmark.RIGHT_MOUTH).getPosition().y) + "\n";
-
-//                    Toast.makeText(getApplicationContext(), "Results Loaded", Toast.LENGTH_SHORT).show();
-                    etResults.setText(text);
-
                     loadGuidelines(tempBitmap, pose);
+                    processExercise(pose);
                     isFrameBeingTested = false;
                 }else{
 //                    Toast.makeText(getApplicationContext(), "Error processing test", Toast.LENGTH_LONG).show();
@@ -270,7 +270,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(getApplicationContext(), "Camera Permission Request", Toast.LENGTH_SHORT).show();
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 455);
         }else{
-            Toast.makeText(getApplicationContext(), "Camera Permission Granted", Toast.LENGTH_SHORT).show();
             startInit();
         }
     }
