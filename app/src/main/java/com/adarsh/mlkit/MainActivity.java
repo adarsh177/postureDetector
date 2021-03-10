@@ -10,16 +10,20 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PointF;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,12 +32,22 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.mediapipe.pose.PoseHolder;
 import com.google.mlkit.vision.pose.Pose;
 import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
 import com.google.mlkit.vision.pose.PoseLandmark;
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -42,29 +56,51 @@ public class MainActivity extends AppCompatActivity {
     ImageView guidelineView;
     ImageCapture imageCapture;
     TextView tvPushup;
+    Button photo;
 
     Canvas guidelineCanvas;
     Bitmap guidelineBmp, tempBitmap;
-    Paint guidePointPaint, guidePaint, transPaint;
+    Paint guidePointPaint, guidePaint, transPaint, wrongPointPaint;
+    CustomPose configPose;
 
-    private final int UPDATE_TIME = 40, PUSHUP_THRESHOLD_DEG = 90;
+    PoseUtils poseUtils;
+
+    private final int UPDATE_TIME = 25;
     private boolean isFrameBeingTested = false, canvasAlreadyClear = true;
-
-    int halfPushupCount = 0;
-    Boolean pushupLastAngleLarge = null;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        poseUtils = new PoseUtils();
         initViews();
-        checkPermissions();
-
-        Log.d("debugg", "We got : " + getAngleBtwPoints_deg(new PointF(10, 0), new PointF(0,0), new PointF(10, 17.32f)));
+        loadConfig();
     }
 
-    private void loadGuidelines(Bitmap bmp, Pose pose){
+    private void loadConfig(){
+        try {
+            InputStream is = getResources().openRawResource(R.raw.sample_exercise_config);
+            Reader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+            char[] bytes = new char[is.available()];
+            Log.d("debugg", "Available : " + bytes.length + ", read : " + reader.read(bytes, 0, bytes.length));
+            String str = new String(bytes);
+            JSONObject obj = new JSONObject(str);
+            configPose = new CustomPose(obj.getJSONArray("poses").getJSONObject(0));
+
+            for(String ss : configPose.landmarkHashMap.keySet()){
+                Log.d("keysss", ss);
+            }
+
+            Toast.makeText(getApplicationContext(), "Loaded Exercise Config for : " + obj.getString("name"), Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e("debugg", "Error loading config", e);
+        }
+
+
+        checkPermissions();
+    }
+
+    private void loadGuidelines(Bitmap bmp, Pose pose, ArrayList<CustomPoseLandmark> wrongPoints){
         new Handler(getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
@@ -77,10 +113,16 @@ public class MainActivity extends AppCompatActivity {
                     transPaint.setStyle(Paint.Style.FILL_AND_STROKE);
 
                     guidePointPaint = new Paint();
-                    guidePointPaint.setColor(Color.RED);
-                    guidePointPaint.setStrokeWidth(10f);
+                    guidePointPaint.setColor(Color.BLUE);
+                    guidePointPaint.setStrokeWidth(5f);
                     guidePointPaint.setStrokeCap(Paint.Cap.BUTT);
-                    guidePointPaint.setStyle(Paint.Style.FILL_AND_STROKE);
+                    guidePointPaint.setStyle(Paint.Style.STROKE);
+
+                    wrongPointPaint = new Paint();
+                    wrongPointPaint.setColor(Color.RED);
+                    wrongPointPaint.setStrokeWidth(10f);
+                    wrongPointPaint.setStrokeCap(Paint.Cap.BUTT);
+                    wrongPointPaint.setStyle(Paint.Style.FILL_AND_STROKE);
 
                     guidePaint = new Paint();
                     guidePaint.setColor(Color.WHITE);
@@ -123,6 +165,12 @@ public class MainActivity extends AppCompatActivity {
                     guidelineCanvas.drawLine(pose.getPoseLandmark(PoseLandmark.RIGHT_EAR).getPosition().x, pose.getPoseLandmark(PoseLandmark.RIGHT_EAR).getPosition().y, pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().x, pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().y, guidePaint);
                     guidelineCanvas.drawLine(pose.getPoseLandmark(PoseLandmark.LEFT_EYE).getPosition().x, pose.getPoseLandmark(PoseLandmark.LEFT_EYE).getPosition().y, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().x, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().y, guidePaint);
                     guidelineCanvas.drawLine(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().x, pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().y, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().x, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().y, guidePaint);
+
+                    //wrong poses
+                    for(CustomPoseLandmark landmark : wrongPoints){
+                        guidelineCanvas.drawCircle((float)landmark.x, (float)landmark.y, 10f, wrongPointPaint);
+                    }
+
                     canvasAlreadyClear = false;
                 }else{
                     canvasAlreadyClear = true;
@@ -136,50 +184,23 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    // in this case processing pushup count
-    private void processExercise(Pose pose){
-        float angleLeftHand = getAngleBtwPoints_deg(pose.getPoseLandmark(PoseLandmark.LEFT_WRIST).getPosition(), pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW).getPosition(), pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER).getPosition());
-        float angleRightHand = getAngleBtwPoints_deg(pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST).getPosition(), pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW).getPosition(), pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER).getPosition());
-        float avgPushupAngle = (Math.abs(angleLeftHand) + Math.abs(angleRightHand)) / 2;
-
-        if(pushupLastAngleLarge == null){
-            pushupLastAngleLarge = avgPushupAngle >= PUSHUP_THRESHOLD_DEG;
-        }
-
-        if(pushupLastAngleLarge && (avgPushupAngle < PUSHUP_THRESHOLD_DEG)){
-            pushupLastAngleLarge = false;
-            halfPushupCount++;
-        }
-
-        if(!pushupLastAngleLarge && (avgPushupAngle >= PUSHUP_THRESHOLD_DEG)){
-            pushupLastAngleLarge = true;
-            halfPushupCount++;
-        }
-
-        tvPushup.setText("PUSHUPS : " + (halfPushupCount/2) + " (Click to reset)");
-    }
-
-    // to get accurate angles for this program pass points in this order (wrist, elbow, ankle)
-    private float getAngleBtwPoints_deg(PointF a1, PointF a2, PointF a3){
-        float m1 = (a2.y - a1.y)/ (a2.x - a1.x);
-        float m2 = (a3.y - a2.y)/ (a3.x - a2.x);
-        float tanTheta = (m2 - m1)/(1 + (m1*m2));
-        float angle = (float) Math.atan(Math.abs(tanTheta));
-        float angleDeg = (float) (180f / (Math.PI / angle));
-        if( !(m1 < 0 || m2 < 0)) angleDeg = 180 - angleDeg;
-        return angleDeg;
-    }
-
     private void initViews(){
         previewView = findViewById(R.id.viewFinder);
-        tvPushup = findViewById(R.id.pushup);
+        tvPushup = findViewById(R.id.comment);
         guidelineView = findViewById(R.id.canvas);
+        photo = findViewById(R.id.photo);
+
+        photo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, PhotoMode.class));
+            }
+        });
 
         tvPushup.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                halfPushupCount = 0;
-                pushupLastAngleLarge = null;
+
             }
         });
     }
@@ -204,22 +225,29 @@ public class MainActivity extends AppCompatActivity {
                 if(task.isSuccessful()){
                     Pose pose = task.getResult();
                     List<PoseLandmark> landmarks = pose.getAllPoseLandmarks();
-                    Log.d("debugg", "Landmarks found : " + landmarks.size());
                     if(landmarks.size() == 0){
 //                        Toast.makeText(getApplicationContext(), "No Point detected in image, please try another image", Toast.LENGTH_LONG).show();
                         isFrameBeingTested = false;
                         if(!canvasAlreadyClear)
-                            loadGuidelines(tempBitmap, null);
+                            loadGuidelines(tempBitmap, null, null);
                         return;
                     }
 
-                    loadGuidelines(tempBitmap, pose);
-                    processExercise(pose);
+                    ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPose.landmarkHashMap, new CustomPose(pose).landmarkHashMap);
+                    if(wrongPoints.size() == 0){
+                        tvPushup.setText("MATCH");
+                        Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                    }else{
+                        tvPushup.setText("NOT MATCH");
+                        Log.d("debugg", "POSE NOT MATCHED!!");
+                    }
+
+                    loadGuidelines(tempBitmap, pose, wrongPoints);
                     isFrameBeingTested = false;
                 }else{
 //                    Toast.makeText(getApplicationContext(), "Error processing test", Toast.LENGTH_LONG).show();
                     Log.e("debugg", "Error in test", task.getException());
-                    loadGuidelines(tempBitmap, null);
+                    loadGuidelines(tempBitmap, null, null);
                     isFrameBeingTested = false;
                 }
             }
