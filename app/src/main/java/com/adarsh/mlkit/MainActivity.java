@@ -16,11 +16,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PointF;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -32,17 +29,16 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.mediapipe.pose.PoseHolder;
 import com.google.mlkit.vision.pose.Pose;
 import com.google.mlkit.vision.pose.PoseDetection;
 import com.google.mlkit.vision.pose.PoseDetector;
 import com.google.mlkit.vision.pose.PoseLandmark;
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -55,18 +51,19 @@ public class MainActivity extends AppCompatActivity {
     PoseDetector detector;
     ImageView guidelineView;
     ImageCapture imageCapture;
-    TextView tvPushup;
+    TextView btmLable, exName;
     Button photo;
 
     Canvas guidelineCanvas;
     Bitmap guidelineBmp, tempBitmap;
     Paint guidePointPaint, guidePaint, transPaint, wrongPointPaint;
-    CustomPose configPose;
+    ArrayList<CustomPose> configPoses;
+    int currentPoseIndex = 0; // pose index to be matched
 
     PoseUtils poseUtils;
 
     private final int UPDATE_TIME = 25;
-    private boolean isFrameBeingTested = false, canvasAlreadyClear = true;
+    private boolean isFrameBeingTested = false, canvasAlreadyClear = true, testCompleted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,17 +82,16 @@ public class MainActivity extends AppCompatActivity {
             Log.d("debugg", "Available : " + bytes.length + ", read : " + reader.read(bytes, 0, bytes.length));
             String str = new String(bytes);
             JSONObject obj = new JSONObject(str);
-            configPose = new CustomPose(obj.getJSONArray("poses").getJSONObject(0));
-
-            for(String ss : configPose.landmarkHashMap.keySet()){
-                Log.d("keysss", ss);
+            JSONArray posesArray = obj.getJSONArray("poses");
+            configPoses = new ArrayList<>();
+            for(int i = 0; i < posesArray.length(); i++){
+                configPoses.add(new CustomPose(posesArray.getJSONObject(i)));
             }
-
-            Toast.makeText(getApplicationContext(), "Loaded Exercise Config for : " + obj.getString("name"), Toast.LENGTH_SHORT).show();
+            exName.setText(obj.getString("name"));
+            btmLable.setText("0/" + configPoses.size());
         } catch (Exception e) {
             Log.e("debugg", "Error loading config", e);
         }
-
 
         checkPermissions();
     }
@@ -138,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
                 // drawing just a rect
                 if(pose != null){
                     for(PoseLandmark landmark : pose.getAllPoseLandmarks()){
-                        guidelineCanvas.drawCircle(landmark.getPosition().x, landmark.getPosition().y, 6f, guidePointPaint);
+                        guidelineCanvas.drawCircle(landmark.getPosition().x, landmark.getPosition().y, 8f, guidePointPaint);
                     }
 
                     // drawing lines
@@ -168,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
 
                     //wrong poses
                     for(CustomPoseLandmark landmark : wrongPoints){
-                        guidelineCanvas.drawCircle((float)landmark.x, (float)landmark.y, 10f, wrongPointPaint);
+                        guidelineCanvas.drawCircle((float)landmark.x, (float)landmark.y, 15f, wrongPointPaint);
                     }
 
                     canvasAlreadyClear = false;
@@ -186,7 +182,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void initViews(){
         previewView = findViewById(R.id.viewFinder);
-        tvPushup = findViewById(R.id.comment);
+        btmLable = findViewById(R.id.comment);
+        exName = findViewById(R.id.exName);
         guidelineView = findViewById(R.id.canvas);
         photo = findViewById(R.id.photo);
 
@@ -197,10 +194,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        tvPushup.setOnClickListener(new View.OnClickListener() {
+        btmLable.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                if(testCompleted){
+                    Toast.makeText(getApplicationContext(), "Restarting Exercise", Toast.LENGTH_SHORT).show();
+                    currentPoseIndex = 0;
+                    testCompleted = false;
+                    isFrameBeingTested = false;
+                    startAnalysis();
+                }
             }
         });
     }
@@ -213,7 +216,6 @@ public class MainActivity extends AppCompatActivity {
 
         tempBitmap = previewView.getBitmap();
         if(previewView.getBitmap() == null){
-//            Toast.makeText(getApplicationContext(), "No Photo Visible", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -226,26 +228,36 @@ public class MainActivity extends AppCompatActivity {
                     Pose pose = task.getResult();
                     List<PoseLandmark> landmarks = pose.getAllPoseLandmarks();
                     if(landmarks.size() == 0){
-//                        Toast.makeText(getApplicationContext(), "No Point detected in image, please try another image", Toast.LENGTH_LONG).show();
                         isFrameBeingTested = false;
                         if(!canvasAlreadyClear)
                             loadGuidelines(tempBitmap, null, null);
                         return;
                     }
 
-                    ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPose.landmarkHashMap, new CustomPose(pose).landmarkHashMap);
-                    if(wrongPoints.size() == 0){
-                        tvPushup.setText("MATCH");
+                    ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPoses.get(currentPoseIndex).landmarkHashMap, new CustomPose(pose).landmarkHashMap);
+                    if(wrongPoints.size() == 1){
+                        currentPoseIndex++;
+                        btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(0).x) + ")");
                         Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                     }else{
-                        tvPushup.setText("NOT MATCH");
-                        Log.d("debugg", "POSE NOT MATCHED!!");
+                        if(Math.round(wrongPoints.get(wrongPoints.size() - 1).x) >= PoseUtils.MINIMUM_MATCH_PERCENT){
+                            currentPoseIndex++;
+                            Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                        }else
+                            Log.d("debugg", "POSE NOT MATCHED!!");
+
+                        btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(wrongPoints.size() - 1).x) + ")");
                     }
+                    wrongPoints.remove(wrongPoints.size() - 1);
 
                     loadGuidelines(tempBitmap, pose, wrongPoints);
                     isFrameBeingTested = false;
+                    if(currentPoseIndex == configPoses.size()){
+                        testCompleted = true;
+                        btmLable.setText("EXERCISE COMPLETED! CLICK TO RESET");
+                        loadGuidelines(tempBitmap, null, null);
+                    }
                 }else{
-//                    Toast.makeText(getApplicationContext(), "Error processing test", Toast.LENGTH_LONG).show();
                     Log.e("debugg", "Error in test", task.getException());
                     loadGuidelines(tempBitmap, null, null);
                     isFrameBeingTested = false;
@@ -260,10 +272,11 @@ public class MainActivity extends AppCompatActivity {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                if(!isFrameBeingTested){
+                if(!isFrameBeingTested && !testCompleted)
                     runTest();
-                }
-                handler.postDelayed(this, UPDATE_TIME);
+
+                if(!testCompleted)
+                    handler.postDelayed(this, UPDATE_TIME);
             }
         });
     }
@@ -282,7 +295,6 @@ public class MainActivity extends AppCompatActivity {
 
                     provider.unbindAll();
                     provider.bindToLifecycle(MainActivity.this, CameraSelector.DEFAULT_BACK_CAMERA, preview);
-                    Toast.makeText(getApplicationContext(), "Camera started", Toast.LENGTH_SHORT).show();
 
                     startAnalysis();
                 } catch (Exception e) {

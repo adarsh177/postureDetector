@@ -11,7 +11,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class PoseUtils {
-    private final double PERCENT_RANGE = 25;
+    private final double ALLOWED_RADIAN_DEVIATION = 0.26;
+    public final static int MINIMUM_MATCH_PERCENT = 70;
 
     private final int[][] comparisionPoints = {
             {PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_SHOULDER},  // right elbow joint
@@ -29,10 +30,17 @@ public class PoseUtils {
         boolean allMatching;
         double angleSample, angleTest;
         ArrayList<CustomPoseLandmark> wrongPoints = new ArrayList<>();
+        float totalPercent = 0;
+
+        Vector2d sampleSpine = getSpineVector(sample);
+        Vector2d testSpine = getSpineVector(test);
+
         for(int[] truple : comparisionPoints){
             angleSample = getAngleFromPoints(sample.get("lm_" + truple[0]), sample.get("lm_" + truple[1]), sample.get("lm_" + truple[2]));
             angleTest = getAngleFromPoints(test.get("lm_" + truple[0]), test.get("lm_" + truple[1]), test.get("lm_" + truple[2]));
-            allMatching = compareAngleWithRange(angleSample, angleTest, PERCENT_RANGE);
+            allMatching = compareAngleWithRange(angleSample, angleTest, ALLOWED_RADIAN_DEVIATION);
+
+            totalPercent += getPercentMatch(angleSample, angleTest);
 
             if(!allMatching){
                 if(test.containsKey("lm_" + truple[1])){
@@ -41,13 +49,33 @@ public class PoseUtils {
             }
         }
 
+        Log.d("debugg", "Percent Match : " + (totalPercent / ((float)comparisionPoints.length)));
+
+        wrongPoints.add(new CustomPoseLandmark((totalPercent / ((float)comparisionPoints.length)), 0));
+
         return wrongPoints;
     }
 
+    private double getPercentMatch(double angleSample, double angleTest){
+        double ll = angleSample - ALLOWED_RADIAN_DEVIATION;
+        double ul = angleSample + ALLOWED_RADIAN_DEVIATION;
+
+        double diffPercent = 0;
+        if(angleTest < ll){
+            diffPercent = (Math.abs(ll - angleTest) / ll) * 100f;
+        }else if(angleTest > ul){
+            diffPercent = (Math.abs(ul - angleTest) / ul) * 100f;
+        }else {
+            diffPercent = (Math.abs(angleSample - angleTest) / angleSample) * 100f;
+        }
+
+        return (100d - diffPercent);
+    }
+
     // compares angleTest with angleSample in given percent range and returns true if equality holds else returns false
-    private boolean compareAngleWithRange(double angleSample, double angleTest, double percentRange){
-        double ll = angleSample * (100 - percentRange) / 100d;
-        double ul = angleSample * (100 + percentRange) / 100d;
+    private boolean compareAngleWithRange(double angleSample, double angleTest, double allowedDeviation){
+        double ll = angleSample - allowedDeviation;
+        double ul = angleSample + allowedDeviation;
 
         return (ll <= angleTest && angleTest <= ul);
     }
@@ -63,5 +91,14 @@ public class PoseUtils {
             Log.d("posedebug", "Invalid cos : " + sideAB + ", " + sideBC + ", " + sideAC + "|| " + pointB.x + ", " + pointB.y);
         }
         return Math.acos(cosVal);
+    }
+
+    private Vector2d getSpineVector(HashMap<String, CustomPoseLandmark> landmarkHashMap){
+        double topX = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_SHOULDER).x + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_SHOULDER).x) / 2;
+        double topY = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_SHOULDER).y + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_SHOULDER).y) / 2;
+        double btmX = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_HIP).x + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_HIP).x) / 2;
+        double btmY = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_HIP).y + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_HIP).y) / 2;
+
+        return new Vector2d(topX, topY, btmX, btmY);
     }
 }
