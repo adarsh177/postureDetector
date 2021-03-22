@@ -3,6 +3,7 @@ package com.adarsh.mlkit;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -46,6 +47,12 @@ public class PhotoMode extends AppCompatActivity {
         etResult = findViewById(R.id.photoResult);
         btnProcess = findViewById(R.id.photoProcess);
 
+        etResult.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(PhotoMode.this, ConfigCreator.class));
+            }
+        });
         btnProcess.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

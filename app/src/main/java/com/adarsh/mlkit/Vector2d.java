@@ -1,5 +1,11 @@
 package com.adarsh.mlkit;
 
+import android.util.Log;
+
+import com.google.mlkit.vision.pose.PoseLandmark;
+
+import java.util.HashMap;
+
 public class Vector2d {
     double x, y;
 
@@ -25,8 +31,10 @@ public class Vector2d {
         ConvertThisToUnitVector();
         other.ConvertThisToUnitVector();
 
-        double crossProd = (other.x * this.y) - (this.x * other.y);
+        double dotProd =  (this.x * other.x) + (other.y * this.y);
 
-        return Math.asin(crossProd);
+        Log.d("debugg", "DOTPROD: " + dotProd);
+
+        return Math.acos(dotProd);
     }
 }

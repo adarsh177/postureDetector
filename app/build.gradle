@@ -50,6 +50,8 @@ dependencies {
     implementation "androidx.camera:camera-view:1.0.0-alpha14"
     implementation "androidx.core:core-ktx:+"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+//    implementation 'nl.bravobit:android-ffmpeg:1.1.7'
+
 }
 repositories {
     mavenCentral()

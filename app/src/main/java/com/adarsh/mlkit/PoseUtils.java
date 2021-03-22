@@ -9,20 +9,21 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Vector;
 
 public class PoseUtils {
-    private final double ALLOWED_RADIAN_DEVIATION = 0.26;
+    private final double ALLOWED_RADIAN_DEVIATION = 0.15;
     public final static int MINIMUM_MATCH_PERCENT = 70;
 
     private final int[][] comparisionPoints = {
-            {PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_SHOULDER},  // right elbow joint
-            {PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST},     // left elbow joint
-            {PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW},    // right shoulder joint
-            {PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP},       // left shoulder joint
-            {PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_SHOULDER},     // right hip joint
-            {PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE},        // left hip joint
-            {PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE},           // left knee joint
-            {PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_HIP},        // right knee joint
+            {PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW},
+            {PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST},
+            {PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW},
+            {PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST},
+            {PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE},
+            {PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE},
+            {PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE},
+            {PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE},
     };
 
     // returns true if pose is similar else returns ArrayList<CustomePoseLandmark> with point of errors
@@ -35,17 +36,32 @@ public class PoseUtils {
         Vector2d sampleSpine = getSpineVector(sample);
         Vector2d testSpine = getSpineVector(test);
 
-        for(int[] truple : comparisionPoints){
-            angleSample = getAngleFromPoints(sample.get("lm_" + truple[0]), sample.get("lm_" + truple[1]), sample.get("lm_" + truple[2]));
-            angleTest = getAngleFromPoints(test.get("lm_" + truple[0]), test.get("lm_" + truple[1]), test.get("lm_" + truple[2]));
+        Vector2d samplePart, testPart;
+
+        for(int[] couple : comparisionPoints){
+            samplePart = new Vector2d(sample.get("lm_" + couple[1]).x, sample.get("lm_" + couple[1]).y, sample.get("lm_" + couple[0]).x, sample.get("lm_" + couple[0]).y);
+            testPart = new Vector2d(test.get("lm_" + couple[1]).x, test.get("lm_" + couple[1]).y, test.get("lm_" + couple[0]).x, test.get("lm_" + couple[0]).y);
+
+            angleSample = samplePart.getThisVectorsAngleOnAnother(sampleSpine);
+            if(sample.get("lm_" + couple[1]).x < sample.get("lm_" + couple[0]).x) angleSample = (Math.PI * 2) - angleSample;
+
+            angleTest = testPart.getThisVectorsAngleOnAnother(testSpine);
+            if(test.get("lm_" + couple[1]).x < test.get("lm_" + couple[0]).x) angleTest = (Math.PI * 2) - angleTest;
+
+            Log.d("debugg", "ANGLESWEGOT(" + couple[0] + ") : " + angleSample + ", " + angleTest);
             allMatching = compareAngleWithRange(angleSample, angleTest, ALLOWED_RADIAN_DEVIATION);
 
-            totalPercent += getPercentMatch(angleSample, angleTest);
+            double match = getPercentMatch(angleSample, angleTest);
+            totalPercent += match;
+
+            Log.d("debugg", "ANGLEDIFF(" + couple[0] + ") :" + (100 - match));
+
+            Log.d("debugg", "INDIVIDUAL MATCH(" + couple[0] + "): " + getPercentMatch(angleSample, angleTest));
 
             if(!allMatching){
-                if(test.containsKey("lm_" + truple[1])){
-                    wrongPoints.add(test.get("lm_" + truple[1]));
-                }else Log.d("debugg", "COMPAREPOSE: TEST HAVING NULL AT: " + truple[1]);
+                if(test.containsKey("lm_" + couple[0])){
+                    wrongPoints.add(test.get("lm_" + couple[0]));
+                }else Log.d("debugg", "COMPAREPOSE: TEST HAVING NULL AT: " + couple[1]);
             }
         }
 
@@ -57,19 +73,13 @@ public class PoseUtils {
     }
 
     private double getPercentMatch(double angleSample, double angleTest){
-        double ll = angleSample - ALLOWED_RADIAN_DEVIATION;
-        double ul = angleSample + ALLOWED_RADIAN_DEVIATION;
-
-        double diffPercent = 0;
-        if(angleTest < ll){
-            diffPercent = (Math.abs(ll - angleTest) / ll) * 100f;
-        }else if(angleTest > ul){
-            diffPercent = (Math.abs(ul - angleTest) / ul) * 100f;
-        }else {
-            diffPercent = (Math.abs(angleSample - angleTest) / angleSample) * 100f;
+        if(Math.abs(angleSample - angleTest) > ((2 * Math.PI) - (2 * ALLOWED_RADIAN_DEVIATION))){
+            double diffPercent = ((2 * ALLOWED_RADIAN_DEVIATION) / (2 * Math.PI)) * 100d;
+            return (100d - diffPercent);
+        }else{
+            double diffPercent = (Math.abs(angleSample - angleTest) / angleSample) * 100d;
+            return (100d - diffPercent);
         }
-
-        return (100d - diffPercent);
     }
 
     // compares angleTest with angleSample in given percent range and returns true if equality holds else returns false
@@ -77,7 +87,17 @@ public class PoseUtils {
         double ll = angleSample - allowedDeviation;
         double ul = angleSample + allowedDeviation;
 
-        return (ll <= angleTest && angleTest <= ul);
+        if(ll >= 0 && ul <= (2 * Math.PI)){
+            return (ll <= angleTest && angleTest <= ul);
+        }else{
+            if(ll < 0){
+                return angleTest >= ((2 * Math.PI) + ll);
+            }else{
+                return angleTest <= ul - (2 * Math.PI);
+            }
+        }
+
+//        return (ll <= angleTest && angleTest <= ul);
     }
 
     // angle at point B will be returned in radians
@@ -99,6 +119,6 @@ public class PoseUtils {
         double btmX = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_HIP).x + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_HIP).x) / 2;
         double btmY = (landmarkHashMap.get("lm_" + PoseLandmark.LEFT_HIP).y + landmarkHashMap.get("lm_" + PoseLandmark.RIGHT_HIP).y) / 2;
 
-        return new Vector2d(topX, topY, btmX, btmY);
+        return new Vector2d(btmX, btmY, topX, topY);
     }
 }

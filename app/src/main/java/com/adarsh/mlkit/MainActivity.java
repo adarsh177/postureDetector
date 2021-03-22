@@ -1,14 +1,5 @@
 package com.adarsh.mlkit;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
-
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -16,6 +7,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -24,6 +17,16 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -65,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     private final int UPDATE_TIME = 25;
     private boolean isFrameBeingTested = false, canvasAlreadyClear = true, testCompleted = false;
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -234,28 +238,30 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPoses.get(currentPoseIndex).landmarkHashMap, new CustomPose(pose).landmarkHashMap);
-                    if(wrongPoints.size() == 1){
-                        currentPoseIndex++;
-                        btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(0).x) + ")");
-                        Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                    }else{
-                        if(Math.round(wrongPoints.get(wrongPoints.size() - 1).x) >= PoseUtils.MINIMUM_MATCH_PERCENT){
+                    if(!testCompleted){
+                        ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPoses.get(currentPoseIndex).landmarkHashMap, new CustomPose(pose).landmarkHashMap);
+                        if(wrongPoints.size() == 1){
                             currentPoseIndex++;
+                            btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(0).x) + ")");
                             Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                        }else
-                            Log.d("debugg", "POSE NOT MATCHED!!");
+                        }else{
+                            if(Math.round(wrongPoints.get(wrongPoints.size() - 1).x) >= PoseUtils.MINIMUM_MATCH_PERCENT){
+                                currentPoseIndex++;
+                                Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                            }else
+                                Log.d("debugg", "POSE NOT MATCHED!!");
 
-                        btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(wrongPoints.size() - 1).x) + ")");
-                    }
-                    wrongPoints.remove(wrongPoints.size() - 1);
+                            btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(wrongPoints.size() - 1).x) + ")");
+                        }
+                        wrongPoints.remove(wrongPoints.size() - 1);
 
-                    loadGuidelines(tempBitmap, pose, wrongPoints);
+                        loadGuidelines(tempBitmap, pose, wrongPoints);
+                    }else loadGuidelines(tempBitmap, pose, null);
+
                     isFrameBeingTested = false;
                     if(currentPoseIndex == configPoses.size()){
                         testCompleted = true;
                         btmLable.setText("EXERCISE COMPLETED! CLICK TO RESET");
-                        loadGuidelines(tempBitmap, null, null);
                     }
                 }else{
                     Log.e("debugg", "Error in test", task.getException());
@@ -272,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                if(!isFrameBeingTested && !testCompleted)
+                if(!isFrameBeingTested)
                     runTest();
 
                 if(!testCompleted)
