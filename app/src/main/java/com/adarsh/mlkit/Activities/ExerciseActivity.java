@@ -1,4 +1,4 @@
-package com.adarsh.mlkit;
+package com.adarsh.mlkit.Activities;
 
 import android.Manifest;
 import android.content.Intent;
@@ -7,7 +7,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.media.MediaMetadataRetriever;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,6 +27,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 
+import com.adarsh.mlkit.CustomPose;
+import com.adarsh.mlkit.CustomPoseLandmark;
+import com.adarsh.mlkit.Utils.PoseUtils;
+import com.adarsh.mlkit.R;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -49,7 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class ExerciseActivity extends AppCompatActivity {
     PreviewView previewView;
     PoseDetector detector;
     ImageView guidelineView;
@@ -194,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
         photo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, PhotoMode.class));
+                startActivity(new Intent(ExerciseActivity.this, PhotoMode.class));
             }
         });
 
@@ -300,7 +303,7 @@ public class MainActivity extends AppCompatActivity {
                     imageCapture = new ImageCapture.Builder().build();
 
                     provider.unbindAll();
-                    provider.bindToLifecycle(MainActivity.this, CameraSelector.DEFAULT_BACK_CAMERA, preview);
+                    provider.bindToLifecycle(ExerciseActivity.this, CameraSelector.DEFAULT_BACK_CAMERA, preview);
 
                     startAnalysis();
                 } catch (Exception e) {
@@ -308,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "Errror Loading Camera Provider, Restart App", Toast.LENGTH_SHORT).show();
                 }
             }
-        },ActivityCompat.getMainExecutor(MainActivity.this));
+        },ActivityCompat.getMainExecutor(ExerciseActivity.this));
     }
 
     private void checkPermissions(){

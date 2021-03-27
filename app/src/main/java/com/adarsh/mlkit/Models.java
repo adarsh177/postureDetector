@@ -15,7 +15,7 @@ import java.util.Iterator;
 // as landmark type is an int and for unique id string is preferrable hence
 // all landmark type are now a string : lm_{landmarkType}
 // example lm_1, lm_2, lm_5 etc
-class CustomPose{
+public class CustomPose{
     public HashMap<String, CustomPoseLandmark> landmarkHashMap;
 
     public CustomPose(Pose pose){
@@ -46,7 +46,7 @@ class CustomPose{
 
 }
 
-class CustomPoseLandmark {
+public class CustomPoseLandmark {
     public double x, y;
 
     public CustomPoseLandmark(PoseLandmark landmark){

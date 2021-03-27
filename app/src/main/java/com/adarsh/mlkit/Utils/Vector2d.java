@@ -1,10 +1,6 @@
-package com.adarsh.mlkit;
+package com.adarsh.mlkit.Utils;
 
 import android.util.Log;
-
-import com.google.mlkit.vision.pose.PoseLandmark;
-
-import java.util.HashMap;
 
 public class Vector2d {
     double x, y;

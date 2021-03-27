@@ -1,7 +1,9 @@
-package com.adarsh.mlkit;
+package com.adarsh.mlkit.Activities;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.media.MediaMetadataRetriever;
@@ -16,36 +18,22 @@ import android.widget.MediaController;
 import android.widget.Toast;
 import android.widget.VideoView;
 
+import com.adarsh.mlkit.R;
+
 import java.util.HashMap;
 
 public class ConfigCreator extends AppCompatActivity {
     MediaMetadataRetriever retriever;
+    VideoView videoView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config_creator);
 
-        VideoView videoView =(VideoView)findViewById(R.id.videoView);
+        videoView =(VideoView)findViewById(R.id.videoView);
 
-        //Creating MediaController
-        MediaController mediaController= new MediaController(this);
-        mediaController.setAnchorView(videoView);
-
-        //specify the location of media file
-        Uri uri=Uri.parse("https://file-examples-com.github.io/uploads/2017/04/file_example_MP4_480_1_5MG.mp4");
-        getResources().openRawResourceFd(R.raw.samplevideo);
-
-        //Setting MediaController and URI, then starting the videoView
-        videoView.setMediaController(mediaController);
-        int rawId = getResources().getIdentifier("samplevideo",  "raw", getPackageName());
-        String path = "android.resource://" + getPackageName() + "/" + rawId;
-        videoView.setVideoURI(Uri.parse(path));
-        videoView.requestFocus();
-        videoView.start();
-
-        retriever = new MediaMetadataRetriever();
-        retriever.setDataSource(path, new HashMap<>());
+        loadVideo();
 
         ImageView preview = findViewById(R.id.videoPreview);
         findViewById(R.id.capture).setOnClickListener(new View.OnClickListener() {
@@ -57,9 +45,32 @@ public class ConfigCreator extends AppCompatActivity {
         });
     }
 
+    void loadVideo(){
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("video/*");
+        startActivityForResult(intent, 255);
+    }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode == 255){
+            if(resultCode == RESULT_OK && data != null){
+                Uri fileUri = data.getData();
+                videoView.setVideoURI(fileUri);
+                videoView.requestFocus();
+                videoView.start();
 
-//    private fun getScreenShot(view: View): Bitmap {
+                retriever = new MediaMetadataRetriever();
+                retriever.setDataSource(getApplicationContext(), fileUri);
+            }else{
+                Log.d("debuggdebugg", "No File Selected");
+                Toast.makeText(getApplicationContext(), "No File Selected", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    //    private fun getScreenShot(view: View): Bitmap {
 //        val returnedBitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
 //        val canvas = Canvas(returnedBitmap)
 //        val bgDrawable = view.background

@@ -1,15 +1,14 @@
-package com.adarsh.mlkit;
+package com.adarsh.mlkit.Utils;
 
 import android.util.Log;
 
+import com.adarsh.mlkit.CustomPoseLandmark;
 import com.google.mlkit.vision.pose.PoseLandmark;
 
 import org.jetbrains.annotations.NotNull;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Vector;
 
 public class PoseUtils {
     private final double ALLOWED_RADIAN_DEVIATION = 0.15;

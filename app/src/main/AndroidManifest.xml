@@ -15,9 +15,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MLKit">
-        <activity android:name=".ConfigCreator"></activity>
-        <activity android:name=".PhotoMode" />
-        <activity android:name=".MainActivity">
+        <activity android:name=".Activities.ConfigCreator"></activity>
+        <activity android:name=".Activities.PhotoMode" />
+        <activity android:name=".Activities.ExerciseActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
