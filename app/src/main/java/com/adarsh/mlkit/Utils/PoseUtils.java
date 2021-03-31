@@ -2,7 +2,7 @@ package com.adarsh.mlkit.Utils;
 
 import android.util.Log;
 
-import com.adarsh.mlkit.CustomPoseLandmark;
+import com.adarsh.mlkit.Models.CustomPoseLandmark;
 import com.google.mlkit.vision.pose.PoseLandmark;
 
 import org.jetbrains.annotations.NotNull;

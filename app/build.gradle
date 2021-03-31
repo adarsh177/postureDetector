@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.adarsh.mlkit"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -50,7 +50,6 @@ dependencies {
     implementation "androidx.camera:camera-view:1.0.0-alpha14"
     implementation "androidx.core:core-ktx:+"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-//    implementation 'nl.bravobit:android-ffmpeg:1.1.7'
 
 }
 repositories {

@@ -27,8 +27,8 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 
-import com.adarsh.mlkit.CustomPose;
-import com.adarsh.mlkit.CustomPoseLandmark;
+import com.adarsh.mlkit.Models.CustomPose;
+import com.adarsh.mlkit.Models.CustomPoseLandmark;
 import com.adarsh.mlkit.Utils.PoseUtils;
 import com.adarsh.mlkit.R;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -75,19 +75,22 @@ public class ExerciseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_exercise);
         poseUtils = new PoseUtils();
         initViews();
         loadConfig();
     }
 
     private void loadConfig(){
+        if(!getIntent().hasExtra("config")){
+            Log.e("debugg", "Config Not FOund");
+            Toast.makeText(getApplicationContext(), "Config Not Found", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
         try {
-            InputStream is = getResources().openRawResource(R.raw.sample_exercise_config);
-            Reader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-            char[] bytes = new char[is.available()];
-            Log.d("debugg", "Available : " + bytes.length + ", read : " + reader.read(bytes, 0, bytes.length));
-            String str = new String(bytes);
+            String str = getIntent().getStringExtra("config");
             JSONObject obj = new JSONObject(str);
             JSONArray posesArray = obj.getJSONArray("poses");
             configPoses = new ArrayList<>();
@@ -97,7 +100,10 @@ public class ExerciseActivity extends AppCompatActivity {
             exName.setText(obj.getString("name"));
             btmLable.setText("0/" + configPoses.size());
         } catch (Exception e) {
-            Log.e("debugg", "Error loading config", e);
+            Log.e("debugg", "Invalid Config File provided!", e);
+            Toast.makeText(getApplicationContext(), "Invalid Config File provided!", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
         }
 
         checkPermissions();

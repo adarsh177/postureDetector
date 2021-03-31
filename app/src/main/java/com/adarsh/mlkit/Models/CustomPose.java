@@ -1,4 +1,4 @@
-package com.adarsh.mlkit;
+package com.adarsh.mlkit.Models;
 
 import android.util.Log;
 
@@ -8,7 +8,6 @@ import com.google.mlkit.vision.pose.PoseLandmark;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -31,7 +30,7 @@ public class CustomPose{
             JSONArray coords;
             for (Iterator<String> it = object.keys(); it.hasNext(); ) {
                 String key = it.next();
-                coords = object.getJSONArray(key);
+                coords = object.isNull(key) ? new JSONArray("[0.0, 0.0]") : object.getJSONArray(key);
                 landmarkHashMap.put(key, new CustomPoseLandmark(Double.parseDouble(String.valueOf(coords.get(0))), Double.parseDouble(String.valueOf(coords.get(1)))));
                 Log.d("debugg", "CUSTOMPOSE: " + Double.parseDouble(String.valueOf(coords.get(0))) + ", " +  Double.parseDouble(String.valueOf(coords.get(1))));
             }
@@ -45,18 +44,3 @@ public class CustomPose{
     }
 
 }
-
-public class CustomPoseLandmark {
-    public double x, y;
-
-    public CustomPoseLandmark(PoseLandmark landmark){
-        this.x = landmark.getPosition().x;
-        this.y = landmark.getPosition().y;
-    }
-
-    public CustomPoseLandmark(double x, double y){
-        this.x = x;
-        this.y = y;
-    }
-}
-
