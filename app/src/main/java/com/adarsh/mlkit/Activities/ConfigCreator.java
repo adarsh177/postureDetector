@@ -194,7 +194,8 @@ public class ConfigCreator extends AppCompatActivity {
         finalPosesArray = new JSONArray();
 
         for(Integer frameTime : adapter.getFrames()){
-            Bitmap bmp = ARGBBitmap(retriever.getFrameAtTime(frameTime, MediaMetadataRetriever.OPTION_CLOSEST));
+            Bitmap bmp = ARGBBitmap(retriever.getFrameAtTime(frameTime * 1000));
+            saveBmpRandomly(bmp);
             detector
                     .process(InputImage.fromBitmap(bmp, 0))
                     .addOnCompleteListener(new OnCompleteListener<Pose>() {
@@ -204,10 +205,10 @@ public class ConfigCreator extends AppCompatActivity {
                                 if(task.getResult().getAllPoseLandmarks().size() == 0){
                                     Log.d("debugg", "NO POSE DETECTED IN THIS BITMAP");
                                     anyErrorWhileProcessing = true;
-                                    return;
+                                }else{
+                                    CustomPose pose = new CustomPose(task.getResult());
+                                    finalPosesArray.put(new JSONObject(pose.landmarkHashMap));
                                 }
-                                CustomPose pose = new CustomPose(task.getResult());
-                                finalPosesArray.put(new JSONObject(pose.landmarkHashMap));
                             }else{
                                 Log.e("debugg", "Error GETTING Pose from bitmap", task.getException());
                                 anyErrorWhileProcessing = true;
@@ -226,6 +227,15 @@ public class ConfigCreator extends AppCompatActivity {
                             }
                         }
                     });
+        }
+    }
+
+    void saveBmpRandomly(Bitmap bmp){
+        try{
+            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), exName.getText().toString() + "_" + System.currentTimeMillis() + ".png");
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, new FileOutputStream(file));
+        }catch (Exception e){
+            Log.e("debugg", "Error Saving FrameBmp", e);
         }
     }
 

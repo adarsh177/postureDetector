@@ -26,7 +26,7 @@ public class PoseUtils {
     };
 
     // returns true if pose is similar else returns ArrayList<CustomePoseLandmark> with point of errors
-    public ArrayList<CustomPoseLandmark> ComparePose(HashMap<String, CustomPoseLandmark> sample, HashMap<String, CustomPoseLandmark> test){
+    public HashMap<String, Object> ComparePose(HashMap<String, CustomPoseLandmark> sample, HashMap<String, CustomPoseLandmark> test, Integer detectionId){
         boolean allMatching;
         double angleSample, angleTest;
         ArrayList<CustomPoseLandmark> wrongPoints = new ArrayList<>();
@@ -68,7 +68,11 @@ public class PoseUtils {
 
         wrongPoints.add(new CustomPoseLandmark((totalPercent / ((float)comparisionPoints.length)), 0));
 
-        return wrongPoints;
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("wrongPoints", wrongPoints);
+        result.put("id", detectionId);
+
+        return result;
     }
 
     private double getPercentMatch(double angleSample, double angleTest){

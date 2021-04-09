@@ -23,6 +23,7 @@ import com.adarsh.mlkit.Activities.ConfigCreator;
 import com.adarsh.mlkit.Activities.ExerciseActivity;
 import com.adarsh.mlkit.Activities.PhotoMode;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 
@@ -56,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType("application/json");
+                intent.setType("*/*");
                 startActivityForResult(intent, 55);
             }
         });
@@ -71,9 +72,11 @@ public class MainActivity extends AppCompatActivity {
     private void handleUri(Uri uri){
         try{
             InputStream stream = getContentResolver().openInputStream(uri);
-            byte[] bytes = new byte[stream.available()];
-            stream.read(bytes, 0, stream.available());
-            String str = new String(bytes);
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            while(stream.available() > 0){
+                os.write(stream.read());
+            }
+            String str = new String(os.toByteArray());
             Log.d("debugg", "File We Got: " + str);
             Intent intent = new Intent(MainActivity.this, ExerciseActivity.class);
             intent.putExtra("config", str);

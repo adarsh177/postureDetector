@@ -50,6 +50,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class ExerciseActivity extends AppCompatActivity {
@@ -176,8 +177,10 @@ public class ExerciseActivity extends AppCompatActivity {
                     guidelineCanvas.drawLine(pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().x, pose.getPoseLandmark(PoseLandmark.RIGHT_EYE).getPosition().y, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().x, pose.getPoseLandmark(PoseLandmark.NOSE).getPosition().y, guidePaint);
 
                     //wrong poses
-                    for(CustomPoseLandmark landmark : wrongPoints){
-                        guidelineCanvas.drawCircle((float)landmark.x, (float)landmark.y, 15f, wrongPointPaint);
+                    if(wrongPoints != null){
+                        for(CustomPoseLandmark landmark : wrongPoints){
+                            guidelineCanvas.drawCircle((float)landmark.x, (float)landmark.y, 15f, wrongPointPaint);
+                        }
                     }
 
                     canvasAlreadyClear = false;
@@ -248,21 +251,26 @@ public class ExerciseActivity extends AppCompatActivity {
                     }
 
                     if(!testCompleted){
-                        ArrayList<CustomPoseLandmark> wrongPoints = poseUtils.ComparePose(configPoses.get(currentPoseIndex).landmarkHashMap, new CustomPose(pose).landmarkHashMap);
-                        if(wrongPoints.size() == 1){
-                            currentPoseIndex++;
-                            btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(0).x) + ")");
-                            Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                        }else{
-                            if(Math.round(wrongPoints.get(wrongPoints.size() - 1).x) >= PoseUtils.MINIMUM_MATCH_PERCENT){
-                                currentPoseIndex++;
-                                Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                            }else
-                                Log.d("debugg", "POSE NOT MATCHED!!");
+                        HashMap<String, Object> result = poseUtils.ComparePose(configPoses.get(currentPoseIndex).landmarkHashMap, new CustomPose(pose).landmarkHashMap, currentPoseIndex);
+                        ArrayList<CustomPoseLandmark> wrongPoints = (ArrayList<CustomPoseLandmark>) result.get("wrongPoints");
+                        Integer returnId = (Integer) result.get("id");
 
-                            btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(wrongPoints.size() - 1).x) + ")");
+                        if(returnId == currentPoseIndex){
+                            if(wrongPoints.size() == 1){
+                                currentPoseIndex++;
+                                btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(0).x) + ")");
+                                Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                            }else{
+                                if(Math.round(wrongPoints.get(wrongPoints.size() - 1).x) >= PoseUtils.MINIMUM_MATCH_PERCENT){
+                                    currentPoseIndex++;
+                                    Log.d("debugg", "POSE MATCHED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                                }else
+                                    Log.d("debugg", "POSE NOT MATCHED!!");
+
+                                btmLable.setText( currentPoseIndex + "/ " + configPoses.size() + "\n (" + Math.round(wrongPoints.get(wrongPoints.size() - 1).x) + ")");
+                            }
+                            wrongPoints.remove(wrongPoints.size() - 1);
                         }
-                        wrongPoints.remove(wrongPoints.size() - 1);
 
                         loadGuidelines(tempBitmap, pose, wrongPoints);
                     }else loadGuidelines(tempBitmap, pose, null);
